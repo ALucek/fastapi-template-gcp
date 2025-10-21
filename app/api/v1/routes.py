@@ -1,9 +1,13 @@
 from fastapi import APIRouter, Depends
 from app.deps import auth_dep
+from app.config import get_settings
 
-router = APIRouter(prefix="/v1")
+settings = get_settings()
+router = APIRouter(prefix="/v1",
+                   dependencies=[Depends(auth_dep)] if settings.app_auth_enabled else [])
 
-@router.get("/hello", dependencies=[Depends(auth_dep)])
+
+@router.get("/hello")
 def hello():
     return {"message": "hello, authorized client"}
 

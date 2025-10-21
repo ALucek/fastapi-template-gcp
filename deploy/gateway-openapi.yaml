@@ -1,0 +1,31 @@
+swagger: "2.0"
+info:
+  title: fastapi-cloudrun
+  version: "1.0.0"
+
+schemes: [https]
+basePath: /
+
+paths:
+  /v1/hello:
+    get:
+      operationId: getHello
+      security: [{ api_key: [] }]
+      x-google-backend:
+        address: https://YOUR_CLOUD_RUN_URL
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses: {"200": {description: OK}}
+
+  /v1/healthz:
+    get:
+      operationId: getHealthz
+      x-google-backend:
+        address: https://YOUR_CLOUD_RUN_URL
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses: {"200": {description: OK}}
+
+securityDefinitions:
+  api_key:
+    type: apiKey
+    in: header
+    name: x-api-key

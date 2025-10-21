@@ -5,7 +5,6 @@ import os
 # Bind to the port Cloud Run provides (defaults to 8080, but don't assume)
 bind = f"0.0.0.0:{os.getenv('PORT', '8080')}"
 
-# 1 vCPU → start with 1 worker (fewer moving parts, less memory, faster cold starts)
 # Scale up later if needed.
 workers = 1
 

@@ -49,3 +49,47 @@ gcloud run deploy ${SERVICE} \
 curl -s -H "x-api-key: strong-random-key" "${URL}/v1/hello"
 
 gcloud run services logs read "$SERVICE" --region "$REGION" --limit 200
+
+API_ID="fastapi-api"              
+GATEWAY_ID="fastapi-gw"           
+GATEWAY_SA="apigw-invoker@${PROJECT_ID}.iam.gserviceaccount.com"
+
+gcloud api-gateway apis create "$API_ID" --project "$PROJECT_ID"
+
+gcloud iam service-accounts create apigw-invoker \
+  --display-name="API Gateway Invoker" \
+  --project "$PROJECT_ID" || true
+
+gcloud run services add-iam-policy-binding "$SERVICE" \
+  --region "$REGION" \
+  --member="serviceAccount:${GATEWAY_SA}" \
+  --role="roles/run.invoker" \
+  --project "$PROJECT_ID"
+
+
+
+gcloud api-gateway api-configs create "$CONFIG_ID" \
+  --api="$API_ID" \
+  --openapi-spec="deploy/gateway-openapi.yaml" \
+  --project="$PROJECT_ID" \
+  --backend-auth-service-account="$GATEWAY_SA"
+
+CONFIG_ID="fastapi-config-$(date +%Y%m%d-%H%M%S)"
+
+GATEWAY_ID="fastapi-gw"
+
+
+RUN_URL="$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')"
+RENDERED="/tmp/openapi.rendered.yaml"
+sed "s#https://YOUR_CLOUD_RUN_URL#${RUN_URL}#g" deploy/gateway-openapi.yaml > "$RENDERED"
+
+CONFIG_ID="fastapi-config-$(date +%Y%m%d-%H%M%S)"
+gcloud api-gateway api-configs create "$CONFIG_ID" \
+  --api="$API_ID" \
+  --openapi-spec="$RENDERED" \
+  --project="$PROJECT_ID" \
+  --backend-auth-service-account="apigw-invoker@${PROJECT_ID}.iam.gserviceaccount.com"
+
+gcloud api-gateway gateways update "$GATEWAY_ID" \
+  --api="$API_ID" --api-config="$CONFIG_ID" \
+  --location="$REGION" --project="$PROJECT_ID"
