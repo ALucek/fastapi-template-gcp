@@ -1,4 +1,5 @@
-from pydantic import BaseSettings, Field, AnyHttpUrl, ValidationError
+from pydantic import Field, AnyHttpUrl, ValidationError
+from pydantic_settings import BaseSettings
 from functools import lru_cache
 import os
 

@@ -43,3 +43,9 @@ gcloud run deploy ${SERVICE} \
   --region ${REGION} \
   --allow-unauthenticated \
   --update-secrets=API_KEY=${SECRET_NAME}:1
+
+  URL=$(gcloud run services describe ${SERVICE} --region ${REGION} \
+  --format='value(status.url)')
+curl -s -H "x-api-key: strong-random-key" "${URL}/v1/hello"
+
+gcloud run services logs read "$SERVICE" --region "$REGION" --limit 200
