@@ -10,5 +10,4 @@ __pycache__
 tests/__pycache__
 .env.infra
 .env.app
-.env.deploy.dev
-.env.deploy.prod
+.env.deploy

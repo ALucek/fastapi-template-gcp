@@ -41,8 +41,6 @@ gcloud iam service-accounts create "$SA_NAME" \
   --display-name="API Gateway Invoker" \
   --project "$PROJECT_ID" >/dev/null 2>&1 || true
 
-# Grant project-level Secret Manager access to the Cloud Run runtime service account
-# This avoids per-secret parsing and ensures access to any current/future secrets in the project
 PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
 RUN_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 echo "Granting project-level Secret Manager access to ${RUN_SA}"

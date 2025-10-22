@@ -1,59 +1,62 @@
 ## FastAPI on Cloud Run behind API Gateway
 
-Minimal template to run FastAPI on Cloud Run as a private service, fronted by API Gateway enforcing Google API Key auth (`x-api-key`).
+Minimal template to manually run FastAPI on Cloud Run as a private service, fronted by API Gateway enforcing Google API Key auth (`x-api-key`).
 
-### Security model (high level)
+### Security model
 
 - Cloud Run service is private (no `allUsers` invoke)
 - API Gateway uses an invoker service account to call Cloud Run
 - Selected routes enforce Google API key via Gateway security definition
 
+### How it works (flow)
+
+- Request hits API Gateway at `https://<gateway-host>`.
+- For protected routes, Gateway validates the Google API key from the `x-api-key` header (open routes skip this).
+- Gateway calls Cloud Run using its invoker service account (`roles/run.invoker`).
+- Cloud Run remains private; direct calls to the Cloud Run URL return 403/401, while calls through Gateway succeed.
+
 ### Prerequisites
 
 - gcloud CLI installed and logged in
 - jq installed (for key scripts)
-- Dockerfile binds `0.0.0.0:$PORT` (see `docker/gunicorn_conf.py`)
-- Env files scaffolded (split by concern)
+
+### End-to-end in 5 steps
+
+1) Authenticate, select project, scaffold env files
 
 ```bash
 gcloud auth login
 gcloud config set project YOUR_PROJECT_ID
 make env-examples
-# edit .env.infra and .env.app
-# optional: edit .env.deploy
+# edit .env.infra, .env.app, .env.deploy
 ```
 
-### Quickstart (automation)
+2) Initialize everything (enable APIs, build & deploy Cloud Run, create/update Gateway)
 
 ```bash
-# one-time or idempotent project init (enable APIs, SA, deploy, gateway)
 make init
-
-# build & deploy Cloud Run (private)
-make build-deploy            # uses .env.infra + .env.deploy
-
-# update API Gateway spec and point gateway to new config
-make gw-update
-
-# create a Google API key restricted to the managed service (does not print key string)
-make api-key
-
-# key management
-make keys
-make del-key KEY_NAME=<KEY_NAME> [YES=true]
-
-# local dev (reload)
-make dev                     # uses .env.infra + .env.app by default
-
-# diagnostics
-make doctor
 ```
 
-Advanced:
+3) Create an API key (print it once for testing)
 
 ```bash
-# If you need the key string just once (avoid printing normally):
-bash scripts/create_api_key.sh --print-key
+make api-key
+```
+
+4) Test through the Gateway
+
+```bash
+HOST="$(gcloud api-gateway gateways describe "$GATEWAY_ID" \
+  --location "$REGION" --project "$PROJECT_ID" --format='value(defaultHostname)')"
+
+curl -i "https://${HOST}/v1/healthz"                 # open route → 200
+curl -i -H "x-api-key: ${KEY}" "https://${HOST}/v1/hello"  # protected → 200
+```
+
+5) Verify setup
+
+```bash
+make doctor
 ```
 
 ### Manual deployment and deep-dive docs
@@ -62,7 +65,18 @@ bash scripts/create_api_key.sh --print-key
 - Scripts and Make targets reference: see [scripts/SCRIPTS.md](scripts/SCRIPTS.md).
 - OpenAPI v2 spec (source of truth for API Gateway): `deploy/gateway-openapi.yaml`.
 
-### Configuration & secrets (short)
+### Scripts at a glance
+
+- `scripts/init_project.sh`: Enable required APIs, ensure Artifact Registry and Gateway SA, build & deploy Cloud Run, grant `run.invoker`, render OpenAPI, create/update Gateway.
+- `scripts/build_and_deploy.sh`: Build container with Cloud Build and deploy Cloud Run as private (optional `SECRETS`, `ENV_VARS`).
+- `scripts/update_gateway.sh`: Inject Cloud Run URL into OpenAPI, create API config, and create/update Gateway.
+- `scripts/create_api_key.sh`: Create a Google API key and restrict it to the Gateway managed service. Flags: `--print-key`, `--prefix <str>`.
+- `scripts/list_api_keys.sh`: List API keys with restrictions.
+- `scripts/delete_api_key.sh`: Delete an API key (use `--yes` to skip confirmation).
+- `scripts/dev_uvicorn.sh`: Run local dev server with reload.
+- `scripts/doctor.sh`: Validate environment, required APIs, IAM, and probe health endpoints.
+
+### Configuration & secrets
 
 - Non-secret app config for local/dev → `.env.app` (e.g., `ENV`, `LOG_LEVEL`, `PORT`).
 - Infra/deploy identifiers → `.env.infra` (e.g., `PROJECT_ID`, `REGION`, `SERVICE`).

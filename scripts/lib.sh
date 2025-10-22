@@ -89,13 +89,6 @@ load_env() {
   done
   set +a
 
-  # Backward compatibility: fall back to legacy .env if nothing loaded
-  if [ "$loaded" = "0" ] && [ -f "$root/.env" ]; then
-    # shellcheck disable=SC1090
-    set -a; . "$root/.env"; set +a
-    loaded=1
-  fi
-
   if [ "$loaded" = "0" ]; then
     die "No env files loaded. Run: make env-examples and edit .env.* files"
   fi
