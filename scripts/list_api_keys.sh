@@ -17,7 +17,7 @@ echo "$LIST_JSON" | jq -r '.[]?.name' | while read -r KEY_NAME; do
   DESC="$(gcloud services api-keys describe "$KEY_NAME" --project "$PROJECT_ID" --format=json)"
   DN="$(jq -r '.displayName // ""' <<<"$DESC")"
   CT="$(jq -r '.createTime // ""' <<<"$DESC")"
-  SRV="$(jq -r '.restrictions.apiTargets[]?.service | select(.)' <<<"$DESC" | paste -sd, -)"
+  SRV="$(jq -r '[.restrictions.apiTargets[]?.service?] | map(select(. != null)) | join(",")' <<<"$DESC")"
   echo -e "${DN}\t${KEY_NAME}\t${CT}\t${SRV}"
 done
 
