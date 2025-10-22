@@ -149,6 +149,31 @@ securityDefinitions:
     name: x-api-key
 ```
 
+### 6a) Optional: Quotas for /v1/hello
+
+If you want rate limiting, include these in your spec and redeploy:
+
+```yaml
+# Root-level
+x-google-management:
+  metrics:
+    - name: "hello-requests"
+      displayName: "Hello requests"
+      valueType: INT64
+      metricKind: DELTA
+  quota:
+    limits:
+      - name: "hello-per-minute"
+        metric: "hello-requests"
+        unit: "1/min/{project}"
+        values: { STANDARD: 60 }
+
+# On /v1/hello method
+x-google-quota:
+  metricCosts:
+    hello-requests: 1
+```
+
 **Render with your actual Cloud Run URL & create config**
 
 ```bash
@@ -206,6 +231,10 @@ echo "KEY=${KEY}"
 CONFIG_ID="$(gcloud api-gateway gateways describe "$GATEWAY_ID" \
   --location "$REGION" --project "$PROJECT_ID" --format='value(apiConfig)')"
 
+MS="$(gcloud api-gateway api-configs describe "$CONFIG_ID" \
+  --api="$API_ID" --project="$PROJECT_ID" \
+  --format='value(googleServiceConfig.name)')"
+
 if [ -z "$MS" ]; then
   MS="$(gcloud endpoints services list --project "$PROJECT_ID" \
         --format='value(NAME)' \
@@ -261,6 +290,67 @@ curl -i "${URL}/v1/healthz"
 # through gateway should be 200
 curl -i "https://${GATEWAY_HOST}/v1/healthz"
 curl -i -H "x-api-key: ${KEY}" "https://${GATEWAY_HOST}/v1/hello"
+```
+
+---
+
+## 10) Logs & Monitoring (quick)
+
+```bash
+# Tail last 100 logs from Cloud Run
+gcloud run services logs read "$SERVICE" --region "$REGION" --limit 100
+
+# Filter by request ID (x-cloud-trace-context piece)
+gcloud logging read \
+  "resource.type=cloud_run_revision AND resource.labels.service_name=$SERVICE AND textPayload:$(echo \"$TRACE_ID\")" \
+  --limit 50 --format="value(textPayload)"
+
+# Gateway-side logs (Service Control):
+# Use Logs Explorer filter:
+# resource.type="api" AND resource.labels.service="<your-managed-service>"
+```
+
+---
+
+## 11) Optional hardening checklist
+
+```bash
+# IAM audit – ensure only gateway SA can invoke
+gcloud run services get-iam-policy "$SERVICE" --region "$REGION" \
+  --format='json(bindings[?role=="roles/run.invoker"])'
+
+# Autoscaling caps (dev vs prod)
+# dev
+gcloud run services update "$SERVICE" --region "$REGION" --max-instances=2
+# prod
+gcloud run services update "$SERVICE" --region "$REGION" --max-instances=50
+
+# Env vars
+gcloud run services update "$SERVICE" --region "$REGION" \
+  --set-env-vars="ENV=prod,LOG_LEVEL=info"
+
+# CORS – add FastAPI CORSMiddleware if browser callers (skip for server-to-server)
+```
+
+---
+
+## 12) Cleanup
+
+```bash
+# Delete a gateway config (doesn't affect live gateway unless attached)
+gcloud api-gateway api-configs delete "$CONFIG_ID" --api "$API_ID" --project "$PROJECT_ID"
+
+# Delete a gateway
+gcloud api-gateway gateways delete "$GATEWAY_ID" \
+  --location "$REGION" --project "$PROJECT_ID"
+
+# Delete an API key
+gcloud services api-keys delete "$KEY_NAME" --project "$PROJECT_ID" --quiet
+
+# Delete Cloud Run service (and image if you want)
+gcloud run services delete "$SERVICE" --region "$REGION" --quiet
+gcloud artifacts docker images delete \
+  "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE}:${TAG}" --quiet
 ```
 
 ---
