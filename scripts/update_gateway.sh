@@ -16,6 +16,13 @@ fi
 URL="$(cloud_run_url)"
 
 RENDERED="$(mktemp /tmp/openapi.rendered.XXXXXX.yaml)"
+trap 'rm -f "$RENDERED"' EXIT
+
+if [ ! -f "$OPENAPI_SPEC" ]; then
+  echo "OpenAPI spec file not found: $OPENAPI_SPEC" >&2
+  exit 1
+fi
+
 sed "s#https://YOUR_CLOUD_RUN_URL#${URL}#g" "$OPENAPI_SPEC" > "$RENDERED"
 
 # Create API (idempotent)
