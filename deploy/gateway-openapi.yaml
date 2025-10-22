@@ -24,6 +24,14 @@ paths:
         path_translation: APPEND_PATH_TO_ADDRESS
       responses: {"200": {description: OK}}
 
+  /v1/readyz:
+    get:
+      operationId: getReadyz
+      x-google-backend:
+        address: https://YOUR_CLOUD_RUN_URL
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses: {"200": {description: OK}}
+
 securityDefinitions:
   api_key:
     type: apiKey
