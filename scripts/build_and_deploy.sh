@@ -23,17 +23,32 @@ gcloud builds submit \
   --project "$PROJECT_ID"
 
 echo "Deploying Cloud Run service: $SERVICE"
-gcloud run deploy "$SERVICE" \
-  --image "$IMG_URI" \
-  --region "$REGION" \
-  --no-allow-unauthenticated \
-  --min-instances=0 \
-  --max-instances=10 \
-  --concurrency=80 \
-  --cpu=1 \
-  --memory=512Mi \
-  --cpu-throttling \
+DEPLOY_ARGS=(
+  --image "$IMG_URI"
+  --region "$REGION"
+  --no-allow-unauthenticated
+  --min-instances=0
+  --max-instances=10
+  --concurrency=80
+  --cpu=1
+  --memory=512Mi
+  --cpu-throttling
   --project "$PROJECT_ID"
+)
+
+# Optionally attach secrets from Secret Manager via env bindings
+# Example: SECRETS="API_TOKEN=api-token:latest,DB_PASSWORD=db-password:5"
+if [ -n "${SECRETS:-}" ]; then
+  DEPLOY_ARGS+=( --set-secrets "$SECRETS" )
+fi
+
+# Optionally set regular environment variables (non-secrets)
+# Example: ENV_VARS="ENV=prod,LOG_LEVEL=info,FEATURE_FLAG=true"
+if [ -n "${ENV_VARS:-}" ]; then
+  DEPLOY_ARGS+=( --set-env-vars "$ENV_VARS" )
+fi
+
+gcloud run deploy "$SERVICE" "${DEPLOY_ARGS[@]}"
 
 URL="$(cloud_run_url)"
 echo "Cloud Run URL: $URL"

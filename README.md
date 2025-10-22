@@ -433,3 +433,79 @@ gcloud artifacts docker images delete \
   bind = f"0.0.0.0:{os.getenv('PORT','8080')}"
   worker_class = "uvicorn.workers.UvicornWorker"
   ```
+
+---
+
+## Configuration & Secrets
+
+- Non-sensitive config is passed as environment variables (e.g., `ENV`, `LOG_LEVEL`, `PORT`).
+- Secrets should be stored in Secret Manager and injected into Cloud Run at deploy time.
+
+### Local development
+
+1. Create `.env` from the template and fill local values (never commit real secrets):
+
+   ```bash
+   make env-example
+   # edit .env
+   ```
+
+2. Run the app locally (the dev script auto-loads `.env`):
+
+   ```bash
+   make dev
+   ```
+
+### Production (Cloud Run)
+
+1. Create secrets and add versions:
+
+   ```bash
+   gcloud secrets create api-token --replication-policy=automatic --project "$PROJECT_ID"
+   printf "%s" "your-token" | gcloud secrets versions add api-token --data-file=- --project "$PROJECT_ID"
+   ```
+
+2. Attach secrets during deploy using `SECRETS` in `.env` or pass inline:
+
+   - In `.env` (names only):
+
+     ```bash
+     SECRETS="API_TOKEN=api-token:latest"
+     ```
+
+   - Or inline:
+
+     ```bash
+     gcloud run deploy "$SERVICE" \
+       --image "$IMG_URI" --region "$REGION" --no-allow-unauthenticated \
+       --set-secrets "API_TOKEN=api-token:latest"
+     ```
+
+3. The app reads secrets from env, and also supports an optional `*_FILE` fallback if you mount secrets as files.
+
+Notes:
+- Rotate by adding a new secret version and redeploying (use `:latest` or pin a number).
+- Grant only your Cloud Run runtime service account `Secret Manager Secret Accessor` on used secrets.
+
+### Non-secret environment variables
+
+- You can set non-secret env vars at deploy time. Using the script via `.env`:
+
+  ```bash
+  # .env
+  ENV_VARS="ENV=prod,LOG_LEVEL=info,FEATURE_FLAG=true"
+  ```
+
+  Then:
+
+  ```bash
+  make build-deploy
+  ```
+
+- Or with gcloud directly:
+
+  ```bash
+  gcloud run deploy "$SERVICE" \
+    --image "$IMG_URI" --region "$REGION" --no-allow-unauthenticated \
+    --set-env-vars "ENV=prod,LOG_LEVEL=info,FEATURE_FLAG=true"
+  ```
