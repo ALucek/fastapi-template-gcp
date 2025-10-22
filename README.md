@@ -16,7 +16,7 @@ gcloud config set project YOUR_PROJECT_ID
 ## 1) Vars (edit once)
 
 ```bash
-export PROJECT_ID="fastapi-repo-2"
+export PROJECT_ID="fast-api-test-3"
 export REGION="us-central1"
 
 export REPO="fastapi-repo"
@@ -183,6 +183,7 @@ sed "s#https://YOUR_CLOUD_RUN_URL#${URL}#g" deploy/gateway-openapi.yaml > "$REND
 gcloud api-gateway apis create "$API_ID" --project "$PROJECT_ID" || true
 
 CONFIG_ID="fastapi-config-$(date +%Y%m%d-%H%M%S)"
+
 gcloud api-gateway api-configs create "$CONFIG_ID" \
   --api="$API_ID" \
   --openapi-spec="$RENDERED" \
