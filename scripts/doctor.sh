@@ -11,11 +11,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib.sh"
 
 load_env
-ensure_command gcloud
+ensure_command gcloud jq
 
 ok() { echo -e "${GREEN}✔${NC} $*"; }
 warn() { echo -e "${YELLOW}⚠${NC} $*"; }
 err() { echo -e "${RED}✖${NC} $*"; }
+
+HAS_CURL=1
+if ! command -v curl >/dev/null 2>&1; then
+  HAS_CURL=0
+  warn "curl not installed; HTTP probes will be skipped"
+fi
 
 PASS=1
 
@@ -69,7 +75,7 @@ else
 fi
 
 # 6) Probes
-if command -v curl >/dev/null 2>&1; then
+if [ "$HAS_CURL" -eq 1 ]; then
   if [ -n "$URL" ]; then
     CODE_CR=$(curl -s -o /dev/null -w "%{http_code}" "$URL/v1/healthz" || true)
     if [ "$CODE_CR" = "403" ] || [ "$CODE_CR" = "401" ]; then
@@ -87,7 +93,7 @@ if command -v curl >/dev/null 2>&1; then
     fi
   fi
 else
-  warn "curl not installed; skipping probes"
+  warn "Skipping HTTP probes; install curl to enable them"
 fi
 
 if [ "$PASS" = "1" ]; then
