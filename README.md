@@ -62,7 +62,7 @@ make doctor
 ### Manual deployment and deep-dive docs
 
 - Manual deployment (all gcloud steps): see [MANUAL_DEPLOYMENT.md](MANUAL_DEPLOYMENT.md).
-- Scripts and Make targets reference: see [scripts/SCRIPTS.md](scripts/SCRIPTS.md).
+- Scripts and Make targets reference: see [scripts/README.md](scripts/README.md).
 - OpenAPI v2 spec (source of truth for API Gateway): `deploy/gateway-openapi.yaml`.
 
 ### Scripts at a glance

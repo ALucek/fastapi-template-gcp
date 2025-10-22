@@ -93,6 +93,16 @@ gcloud run deploy "$SERVICE" \
   --project "$PROJECT_ID"
 ```
 
+Tuning: adjust scaling and concurrency later via update (mirrors the deploy flags above):
+
+```bash
+gcloud run services update "$SERVICE" \
+  --region "$REGION" \
+  --max-instances=10 \
+  --concurrency=80 \
+  --memory=512Mi
+```
+
 Get the Cloud Run URL (used when rendering the gateway spec):
 
 ```bash
@@ -232,6 +242,27 @@ gcloud services api-keys update "$KEY_NAME" \
   --project "$PROJECT_ID"
 ```
 
+#### List API keys with restrictions
+
+```bash
+# Tab-separated: DISPLAY_NAME \t NAME \t CREATE_TIME \t RESTRICTED_SERVICES
+gcloud services api-keys list \
+  --project "$PROJECT_ID" --format=json \
+| jq -r '.[]? | [.displayName, .name, .createTime, ([.restrictions.apiTargets[]?.service?] | map(select(. != null)) | join(","))] | @tsv'
+```
+
+#### Delete an API key (by resource name or display name)
+
+```bash
+# If you have the resource name (projects/.../keys/...):
+gcloud services api-keys delete "$KEY_NAME" --project "$PROJECT_ID" --quiet
+
+# If you only know the display name, resolve the most recent match to NAME:
+KEY_NAME="$(gcloud services api-keys list --project "$PROJECT_ID" --format=json \
+  | jq -r --arg dn "DISPLAY_NAME_HERE" '[.[] | select(.displayName == $dn)] | sort_by(.createTime) | last | .name // empty')"
+[ -n "$KEY_NAME" ] && gcloud services api-keys delete "$KEY_NAME" --project "$PROJECT_ID" --quiet
+```
+
 ### 9) Test through the gateway (and ensure Cloud Run stays private)
 
 ```bash
@@ -264,7 +295,33 @@ curl -i "https://${GATEWAY_HOST}/v1/healthz"
 curl -i -H "x-api-key: ${KEY}" "https://${GATEWAY_HOST}/v1/hello"
 ```
 
-### 10) Logs and monitoring
+### 10) Verification checklist (doctor parity)
+
+```bash
+# Logged in?
+gcloud config get-value account
+
+# Required APIs enabled?
+REQ_APIS=(run.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com apigateway.googleapis.com servicemanagement.googleapis.com servicecontrol.googleapis.com secretmanager.googleapis.com apikeys.googleapis.com)
+ENABLED="$(gcloud services list --enabled --project "$PROJECT_ID" --format='value(config.name)')"
+for A in "${REQ_APIS[@]}"; do grep -q "^${A}$" <<< "$ENABLED" || echo "Missing: $A"; done
+
+# Cloud Run URL exists, direct probe is denied (403/401)
+URL="$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT_ID" --format='value(status.url)')"
+[ -n "$URL" ] && curl -i "$URL/v1/healthz"
+
+# Gateway hostname and probe
+GATEWAY_HOST="$(gcloud api-gateway gateways describe "$GATEWAY_ID" --location "$REGION" --project "$PROJECT_ID" --format='value(defaultHostname)')"
+[ -n "$GATEWAY_HOST" ] && curl -i "https://${GATEWAY_HOST}/v1/healthz"
+
+# IAM: Gateway SA has roles/run.invoker on the service
+GATEWAY_SA="${GATEWAY_SA:-apigw-invoker@${PROJECT_ID}.iam.gserviceaccount.com}"
+gcloud run services get-iam-policy "$SERVICE" --region "$REGION" --project "$PROJECT_ID" --format=json \
+| jq -e '.bindings[]? | select(.role=="roles/run.invoker") | .members[]? | select(.=="serviceAccount:'"$GATEWAY_SA"'")' >/dev/null \
+  && echo "OK: Gateway SA has run.invoker" || echo "Missing run.invoker for $GATEWAY_SA"
+```
+
+### 11) Logs and monitoring
 
 ```bash
 # Tail last 100 logs from Cloud Run
@@ -282,7 +339,7 @@ gcloud logging read \
   --limit 50 --format="value(textPayload)"
 ```
 
-### 11) Optional hardening checklist
+### 12) Optional hardening checklist
 
 ```bash
 # IAM audit – ensure only gateway SA can invoke
@@ -300,7 +357,7 @@ gcloud run services update "$SERVICE" --region "$REGION" \
 # CORS – add FastAPI CORSMiddleware if browser callers (skip for server-to-server)
 ```
 
-### 12) Cleanup
+### 13) Cleanup
 
 ```bash
 # Delete a gateway config (doesn't affect live gateway unless attached)
