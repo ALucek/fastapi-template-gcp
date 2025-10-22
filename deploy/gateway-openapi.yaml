@@ -10,11 +10,16 @@ paths:
   /v1/hello:
     get:
       operationId: getHello
-      security: [{ api_key: [] }]
+      security:
+        - api_key: []
       x-google-backend:
         address: https://YOUR_CLOUD_RUN_URL
         path_translation: APPEND_PATH_TO_ADDRESS
-      responses: {"200": {description: OK}}
+      x-google-quota:
+        metricCosts:
+          hello-requests: 1
+      responses:
+        "200": { description: OK }
 
   /v1/healthz:
     get:
@@ -22,7 +27,8 @@ paths:
       x-google-backend:
         address: https://YOUR_CLOUD_RUN_URL
         path_translation: APPEND_PATH_TO_ADDRESS
-      responses: {"200": {description: OK}}
+      responses:
+        "200": { description: OK }
 
   /v1/readyz:
     get:
@@ -30,10 +36,25 @@ paths:
       x-google-backend:
         address: https://YOUR_CLOUD_RUN_URL
         path_translation: APPEND_PATH_TO_ADDRESS
-      responses: {"200": {description: OK}}
+      responses:
+        "200": { description: OK }
 
 securityDefinitions:
   api_key:
     type: apiKey
     in: header
     name: x-api-key
+
+x-google-management:
+  metrics:
+    - name: "hello-requests"
+      displayName: "Hello requests"
+      valueType: INT64
+      metricKind: DELTA
+  quota:
+    limits:
+      - name: "hello-per-minute"
+        metric: "hello-requests"
+        unit: "1/min/{project}"
+        values:
+          STANDARD: 60
