@@ -28,9 +28,9 @@ Override by setting `ENV_FILES` (colon-separated) if needed.
 | `build-deploy`  | `scripts/build_and_deploy.sh`  | Build image and deploy Cloud Run (private)   | `SECRETS`, `ENV_VARS` via `.env`              |
 | `gw-update`     | `scripts/update_gateway.sh`    | Render OpenAPI with URL and update gateway   | —                                            |
 | `init`          | `scripts/init_project.sh`      | One-time/init: enable APIs, SA, deploy, GW   | —                                            |
-| `api-key`       | `scripts/create_api_key.sh`    | Create API key restricted to managed service | `--prefix <str>`, `--print-key`              |
+| `api-key`       | `scripts/create_api_key.sh`    | Create API key restricted to managed service | `KEY_PREFIX`, `PRINT_KEY=1`                  |
 | `keys`          | `scripts/list_api_keys.sh`     | List API keys with restrictions              | —                                            |
-| `del-key`       | `scripts/delete_api_key.sh`    | Delete API key (confirm unless `--yes`)      | `--yes`                                      |
+| `del-key`       | `scripts/delete_api_key.sh`    | Delete API key (confirm unless YES=true)     | `YES=true`                                   |
 | `dev`           | `scripts/dev_uvicorn.sh`       | Run uvicorn locally with reload              | Uses `PORT`                                  |
 | `doctor`        | `scripts/doctor.sh`            | Validate setup and probe endpoints           | —                                            |
 
@@ -70,9 +70,9 @@ Provides: `die`, `ensure_command`, `require_env_vars`, `load_env` (layered: defa
 
 - Synopsis: Create a Google API key and restrict it to the API Gateway managed service.
 - Requires env: `PROJECT_ID`, `API_ID`, `GATEWAY_ID`.
-- Flags:
-  - `--print-key`: print the key string once (avoid storing/printing routinely).
-  - `--prefix <str>`: change display name prefix (default `gw`).
+- Configuration via env:
+  - `PRINT_KEY=1`: print the key string once (avoid storing/printing routinely).
+  - `KEY_PREFIX` (or `PREFIX`): change display name prefix (default `gw`).
 - Output: `KEY_NAME` and managed service; optionally `KEY`.
 
 
@@ -86,8 +86,8 @@ Provides: `die`, `ensure_command`, `require_env_vars`, `load_env` (layered: defa
 
 - Synopsis: Delete an API key by resource name or display name.
 - Requires env: `PROJECT_ID`.
-- Usage: `scripts/delete_api_key.sh <KEY_NAME|displayName> [--yes]`
-- Behavior: Prompts for confirmation unless `--yes` provided.
+- Usage: `scripts/delete_api_key.sh <KEY_NAME|displayName>`
+- Behavior: Prompts for confirmation unless `YES=true` is set.
 
 ### scripts/dev_uvicorn.sh
 

@@ -9,26 +9,18 @@ load_env
 ensure_command gcloud jq
 require_env_vars PROJECT_ID API_ID GATEWAY_ID
 
-PRINT_KEY="0"
-PREFIX="${KEY_PREFIX:-gw}"
-
-while [ $# -gt 0 ]; do
-  case "$1" in
-    --print-key)
-      PRINT_KEY="1"; shift ;;
-    --prefix)
-      PREFIX="$2"; shift 2 ;;
-    *)
-      echo "Unknown flag: $1" >&2; exit 1 ;;
-  esac
-done
+# Configure via env vars (no --flags)
+# PRINT_KEY: set to 1 to print key string once
+# KEY_PREFIX or PREFIX: display name prefix (default "gw")
+PRINT_KEY="${PRINT_KEY:-0}"
+NAME_PREFIX="${KEY_PREFIX:-${PREFIX:-gw}}"
 
 MS="$(managed_service_name)"
 
 # Enable the managed service in this project (idempotent)
 gcloud services enable "$MS" --project "$PROJECT_ID" >/dev/null 2>&1 || true
 
-DISPLAY_NAME="${PREFIX}-$(timestamp)"
+DISPLAY_NAME="${NAME_PREFIX}-$(timestamp)"
 CREATE_OUT="$(gcloud services api-keys create \
   --display-name="$DISPLAY_NAME" \
   --project "$PROJECT_ID" --format=json)"

@@ -10,10 +10,10 @@ ensure_command gcloud jq
 require_env_vars PROJECT_ID
 
 INPUT="${1:-}"
-YES_FLAG="${2:-}"
 
 if [ -z "$INPUT" ]; then
-  echo "Usage: scripts/delete_api_key.sh <KEY_NAME or displayName> [--yes]" >&2
+  echo "Usage: scripts/delete_api_key.sh <KEY_NAME or displayName>" >&2
+  echo "Set YES=true to skip confirmation." >&2
   exit 1
 fi
 
@@ -29,7 +29,7 @@ else
   fi
 fi
 
-if [ "$YES_FLAG" != "--yes" ]; then
+if [ "${YES:-}" != "true" ]; then
   read -r -p "Delete key $KEY_NAME ? (y/N) " ans
   case "$ans" in
     y|Y|yes|YES) ;;

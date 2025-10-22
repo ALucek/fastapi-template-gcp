@@ -8,9 +8,7 @@ env-examples:
 	@[ -f $(ROOT)/.env.deploy ] || (cp $(ROOT)/.env.deploy.example $(ROOT)/.env.deploy && echo ".env.deploy created") || true
 
 api-key:
-	CMD="bash scripts/create_api_key.sh"; \
-	[ -n "$(PREFIX)" ] && CMD="$$CMD --prefix $(PREFIX)"; \
-	$$CMD
+	PREFIX="$(PREFIX)" KEY_PREFIX="$(KEY_PREFIX)" PRINT_KEY="$(PRINT_KEY)" bash scripts/create_api_key.sh
 
 build-deploy:
 	bash scripts/build_and_deploy.sh
@@ -28,9 +26,7 @@ keys:
 
 del-key:
 	@if [ -z "$(KEY_NAME)" ]; then echo "Usage: make del-key KEY_NAME=<KEY_NAME> [YES=true]" && exit 1; fi; \
-	YES_FLAG=""; \
-	[ "$(YES)" = "true" ] && YES_FLAG="--yes"; \
-	bash scripts/delete_api_key.sh "$(KEY_NAME)" $$YES_FLAG
+	YES="$(YES)" bash scripts/delete_api_key.sh "$(KEY_NAME)"
 
 dev:
 	bash scripts/dev_uvicorn.sh

@@ -70,11 +70,77 @@ make doctor
 - `scripts/init_project.sh`: Enable required APIs, ensure Artifact Registry and Gateway SA, build & deploy Cloud Run, grant `run.invoker`, render OpenAPI, create/update Gateway.
 - `scripts/build_and_deploy.sh`: Build container with Cloud Build and deploy Cloud Run as private (optional `SECRETS`, `ENV_VARS`).
 - `scripts/update_gateway.sh`: Inject Cloud Run URL into OpenAPI, create API config, and create/update Gateway.
-- `scripts/create_api_key.sh`: Create a Google API key and restrict it to the Gateway managed service. Flags: `--print-key`, `--prefix <str>`.
+- `scripts/create_api_key.sh`: Create a Google API key and restrict it to the Gateway managed service. Config via env: `PRINT_KEY=1`, `KEY_PREFIX=<str>`.
 - `scripts/list_api_keys.sh`: List API keys with restrictions.
-- `scripts/delete_api_key.sh`: Delete an API key (use `--yes` to skip confirmation).
+- `scripts/delete_api_key.sh`: Delete an API key (set `YES=true` to skip confirmation).
 - `scripts/dev_uvicorn.sh`: Run local dev server with reload.
 - `scripts/doctor.sh`: Validate environment, required APIs, IAM, and probe health endpoints.
+
+### Make targets
+
+These convenience targets wrap the scripts in `scripts/` and set sane defaults.
+
+- **`env-examples`**: Create missing `.env.infra`, `.env.app`, `.env.deploy` from their `*.example` templates.
+
+```bash
+make env-examples
+```
+
+- **`init`**: End-to-end project bootstrap (enable APIs, build & deploy Cloud Run, grant IAM, render OpenAPI, create/update Gateway).
+
+```bash
+make init
+```
+
+- **`build-deploy`**: Build the container with Cloud Build and deploy to Cloud Run.
+
+```bash
+make build-deploy
+```
+
+- **`gw-update`**: Regenerate API config from `deploy/gateway-openapi.yaml` and update/create the API Gateway.
+
+```bash
+make gw-update
+```
+
+- **`api-key`**: Create a Google API key restricted to this Gateway. Optionally prefix the key name.
+
+```bash
+# basic
+make api-key
+
+# prefix key name
+make api-key PREFIX=myapp
+
+# print key once
+make api-key PRINT_KEY=1
+```
+
+- **`keys`**: List API keys and their restrictions.
+
+```bash
+make keys
+```
+
+- **`del-key`**: Delete an API key by name. Requires `KEY_NAME`. Add `YES=true` to skip confirmation.
+
+```bash
+make del-key KEY_NAME=<KEY_NAME>
+make del-key KEY_NAME=<KEY_NAME> YES=true
+```
+
+- **`dev`**: Run local FastAPI server with autoreload.
+
+```bash
+make dev
+```
+
+- **`doctor`**: Run environment and deployment diagnostics.
+
+```bash
+make doctor
+```
 
 ### Configuration & secrets
 
