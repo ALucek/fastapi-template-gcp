@@ -2,18 +2,18 @@
 
 Minimal template to manually run FastAPI on Cloud Run as a private service, fronted by API Gateway enforcing Google API Key auth (`x-api-key`).
 
-### Security model
-
-- Cloud Run service is private (no `allUsers` invoke)
-- API Gateway uses an invoker service account to call Cloud Run
-- Selected routes enforce Google API key via Gateway security definition
-
 ### How it works (flow)
 
 - Request hits API Gateway at `https://<gateway-host>`.
 - For protected routes, Gateway validates the Google API key from the `x-api-key` header (open routes skip this).
 - Gateway calls Cloud Run using its invoker service account (`roles/run.invoker`).
 - Cloud Run remains private; direct calls to the Cloud Run URL return 403/401, while calls through Gateway succeed.
+
+### Security model
+
+- Cloud Run service is private (no `allUsers` invoke)
+- API Gateway uses an invoker service account to call Cloud Run
+- Selected routes enforce Google API key via Gateway security definition
 
 ### Prerequisites
 
