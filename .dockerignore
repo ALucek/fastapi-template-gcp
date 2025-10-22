@@ -8,3 +8,7 @@ __pycache__
 .git
 .gitignore
 tests/__pycache__
+.env.infra
+.env.app
+.env.deploy.dev
+.env.deploy.prod

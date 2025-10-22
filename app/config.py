@@ -13,7 +13,7 @@ def _env_or_file(name: str) -> str | None:
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
+    model_config = SettingsConfigDict(env_file=(".env.app", ".env"), case_sensitive=False)
 
     port: int = Field(default=int(os.getenv("PORT", 8080)))
     service_name: str = "fastapi-cloudrun"

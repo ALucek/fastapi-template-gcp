@@ -1,26 +1,36 @@
-# FastAPI on Cloud Run behind API Gateway — One-Pass Deployment README
+## FastAPI on Cloud Run behind API Gateway
 
-## 0) Prereqs
+Minimal template to run FastAPI on Cloud Run as a private service, fronted by API Gateway enforcing Google API Key auth (`x-api-key`).
 
-* gcloud CLI installed and logged in
-* A working Dockerfile (gunicorn/uvicorn binding to `0.0.0.0:$PORT`)
-* A Swagger **v2 (OpenAPI 2.0)** file at `deploy/gateway-openapi.yaml` (template below)
+### Security model (high level)
+
+- Cloud Run service is private (no `allUsers` invoke)
+- API Gateway uses an invoker service account to call Cloud Run
+- Selected routes enforce Google API key via Gateway security definition
+
+### Prerequisites
+
+- gcloud CLI installed and logged in
+- jq installed (for key scripts)
+- Dockerfile binds `0.0.0.0:$PORT` (see `docker/gunicorn_conf.py`)
+- Env files scaffolded (split by concern)
 
 ```bash
 gcloud auth login
 gcloud config set project YOUR_PROJECT_ID
+make env-examples
+# edit .env.infra and .env.app
+# optional: edit .env.deploy.dev / .env.deploy.prod
 ```
 
----
-
-## Quickstart: Automation
+### Quickstart (automation)
 
 ```bash
-# create .env from template
-make env-example
+# one-time or idempotent project init (enable APIs, SA, deploy, gateway)
+make init
 
 # build & deploy Cloud Run (private)
-make build-deploy
+make build-deploy            # uses .env.infra + .env.deploy.dev by default; override with DEPLOY_ENV=prod
 
 # update API Gateway spec and point gateway to new config
 make gw-update
@@ -28,16 +38,13 @@ make gw-update
 # create a Google API key restricted to the managed service (does not print key string)
 make api-key
 
-# project initialization (one-time or idempotent)
-make init
-
 # key management
 make keys
 make rotate-key OLD=<KEY_NAME> [DELETE=true] [PRINT=true]
 make del-key KEY_NAME=<KEY_NAME> [YES=true]
 
 # local dev (reload)
-make dev
+make dev                     # uses .env.infra + .env.app by default
 
 # diagnostics
 make doctor
@@ -50,462 +57,28 @@ Advanced:
 bash scripts/create_api_key.sh --print-key
 ```
 
----
-
-## 1) Vars (edit once)
-
-```bash
-export PROJECT_ID="fast-api-test-3"
-export REGION="us-central1"
-
-export REPO="fastapi-repo"
-export IMAGE="fastapi-cloudrun"
-export TAG="v1"
-
-export SERVICE="fastapi-api"
-
-export API_ID="fastapi-api"
-export GATEWAY_ID="fastapi-gw"
-export GATEWAY_SA="apigw-invoker@${PROJECT_ID}.iam.gserviceaccount.com"
-```
-
----
-
-## 2) Enable services (safe to re-run)
-
-```bash
-gcloud services enable \
-  run.googleapis.com \
-  artifactregistry.googleapis.com \
-  cloudbuild.googleapis.com \
-  apigateway.googleapis.com \
-  servicemanagement.googleapis.com \
-  servicecontrol.googleapis.com \
-  apikeys.googleapis.com \
-  --project "$PROJECT_ID"
-```
-
----
-
-## 3) Build & push image (Artifact Registry)
-
-```bash
-gcloud artifacts repositories create "$REPO" \
-  --repository-format=docker \
-  --location="$REGION" \
-  --project "$PROJECT_ID" || true
-
-gcloud builds submit \
-  --tag "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE}:${TAG}" \
-  --project "$PROJECT_ID"
-```
-
----
-
-## 4) Deploy Cloud Run **private** (no public invoke)
-
-> App-level auth is **removed**; API Gateway will handle auth.
-
-```bash
-gcloud run deploy "$SERVICE" \
-  --image "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE}:${TAG}" \
-  --region "$REGION" \
-  --no-allow-unauthenticated \
-  --min-instances=0 \
-  --max-instances=10 \
-  --concurrency=80 \
-  --cpu=1 \
-  --memory=512Mi \
-  --cpu-throttling \
-  --project "$PROJECT_ID"
-```
-
-Grab the Cloud Run URL (backend target for gateway):
-
-```bash
-export URL="$(gcloud run services describe "$SERVICE" \
-  --region "$REGION" --project "$PROJECT_ID" \
-  --format='value(status.url)')"
-echo "Cloud Run URL: $URL"
-```
-
----
-
-## 5) Create the API Gateway caller service account & grant invoke
-
-```bash
-gcloud iam service-accounts create apigw-invoker \
-  --display-name="API Gateway Invoker" \
-  --project "$PROJECT_ID" || true
-
-gcloud run services add-iam-policy-binding "$SERVICE" \
-  --region "$REGION" --project "$PROJECT_ID" \
-  --member="serviceAccount:${GATEWAY_SA}" \
-  --role="roles/run.invoker"
-```
-
----
-
-## 6) Gateway spec (Swagger v2) → render → create config
-
-**`deploy/gateway-openapi.yaml` (template)**
-
-```yaml
-swagger: "2.0"
-info:
-  title: fastapi-cloudrun
-  version: "1.0.0"
-
-schemes: [https]
-basePath: /
-
-paths:
-  /v1/hello:
-    get:
-      operationId: getHello
-      # Gateway enforces Google API key here
-      security:
-        - api_key: []
-      x-google-backend:
-        address: https://YOUR_CLOUD_RUN_URL         # replaced at render time
-        path_translation: APPEND_PATH_TO_ADDRESS
-      responses:
-        "200": { description: OK }
-
-  /v1/healthz:
-    get:
-      operationId: getHealthz
-      x-google-backend:
-        address: https://YOUR_CLOUD_RUN_URL
-        path_translation: APPEND_PATH_TO_ADDRESS
-      responses:
-        "200": { description: OK }
-
-securityDefinitions:
-  api_key:
-    type: apiKey
-    in: header
-    name: x-api-key
-```
-
-### 6a) Optional: Quotas for /v1/hello
-
-If you want rate limiting, include these in your spec and redeploy:
-
-```yaml
-# Root-level
-x-google-management:
-  metrics:
-    - name: "hello-requests"
-      displayName: "Hello requests"
-      valueType: INT64
-      metricKind: DELTA
-  quota:
-    limits:
-      - name: "hello-per-minute"
-        metric: "hello-requests"
-        unit: "1/min/{project}"
-        values: { STANDARD: 60 }
-
-# On /v1/hello method
-x-google-quota:
-  metricCosts:
-    hello-requests: 1
-```
-
-**Render with your actual Cloud Run URL & create config**
-
-```bash
-RENDERED="/tmp/openapi.rendered.yaml"
-sed "s#https://YOUR_CLOUD_RUN_URL#${URL}#g" deploy/gateway-openapi.yaml > "$RENDERED"
-
-gcloud api-gateway apis create "$API_ID" --project "$PROJECT_ID" || true
-
-CONFIG_ID="fastapi-config-$(date +%Y%m%d-%H%M%S)"
-
-gcloud api-gateway api-configs create "$CONFIG_ID" \
-  --api="$API_ID" \
-  --openapi-spec="$RENDERED" \
-  --backend-auth-service-account="$GATEWAY_SA" \
-  --project="$PROJECT_ID"
-```
-
----
-
-## 7) Create/Update the Gateway & get hostname
-
-```bash
-gcloud api-gateway gateways create "$GATEWAY_ID" \
-  --api="$API_ID" --api-config="$CONFIG_ID" \
-  --location="$REGION" --project "$PROJECT_ID" || true
-
-gcloud api-gateway gateways update "$GATEWAY_ID" \
-  --api="$API_ID" --api-config="$CONFIG_ID" \
-  --location="$REGION" --project "$PROJECT_ID"
-
-export GATEWAY_HOST="$(gcloud api-gateway gateways describe "$GATEWAY_ID" \
-  --location "$REGION" --project "$PROJECT_ID" \
-  --format='value(defaultHostname)')"
-echo "Gateway Hostname: https://${GATEWAY_HOST}"
-```
-
----
-
-## 8) Create a **Google API key** (for Gateway) & test
-
-**Create key and capture the *string***
-
-```bash
-CREATE_OUT="$(gcloud services api-keys create \
-  --display-name="gw-dev-$(date +%Y%m%d-%H%M%S)" \
-  --project "$PROJECT_ID" --format=json 2>/dev/null)"
-KEY_NAME="$(jq -r '.response.name' <<<"$CREATE_OUT")"
-KEY="$(jq -r '.response.keyString' <<<"$CREATE_OUT")"
-echo "KEY_NAME=${KEY_NAME}"
-echo "KEY=${KEY}"
-```
-
-**Discover the API Gateway Managed Service (MS)**
-
-```bash
-CONFIG_ID="$(gcloud api-gateway gateways describe "$GATEWAY_ID" \
-  --location "$REGION" --project "$PROJECT_ID" --format='value(apiConfig)')"
-
-MS="$(gcloud api-gateway api-configs describe "$CONFIG_ID" \
-  --api="$API_ID" --project="$PROJECT_ID" \
-  --format='value(googleServiceConfig.name)')"
-
-if [ -z "$MS" ]; then
-  MS="$(gcloud endpoints services list --project "$PROJECT_ID" \
-        --format='value(NAME)' \
-      | grep -E "^${API_ID}-.*\.apigateway\.${PROJECT_ID}\.cloud\.goog$" \
-      | head -n1)"
-fi
-
-echo "Managed service: ${MS}"
-```
-
-**Enable MS in this project (idempotent)**
-
-```bash
-gcloud services enable "$MS" --project "$PROJECT_ID"
-
-# --- Restrict the key to ONLY this MS ---
-gcloud services api-keys update "$KEY_NAME" \
-  --api-target="service=${MS}" \
-  --project "$PROJECT_ID"
-```
-
-**Test the key**
-
-```bash
-# open route (no key)
-curl -i "https://${GATEWAY_HOST}/v1/healthz"
-
-# protected route (Gateway API key required)
-curl -i -H "x-api-key: ${KEY}" "https://${GATEWAY_HOST}/v1/hello"
-
-# protected route, no Auth test
-curl -i -H "x-api-key: fake-key" "https://${GATEWAY_HOST}/v1/hello"
-```
-
----
-
-## 9) Keep Cloud Run **gateway-only**
-
-If you ever had it public, remove `allUsers`:
-
-```bash
-gcloud run services remove-iam-policy-binding "$SERVICE" \
-  --region "$REGION" --project "$PROJECT_ID" \
-  --member="allUsers" --role="roles/run.invoker" || true
-```
-
-Verify:
-
-```bash
-# direct base URL should be 403 (private service)
-curl -i "${URL}/v1/healthz"
-
-# through gateway should be 200
-curl -i "https://${GATEWAY_HOST}/v1/healthz"
-curl -i -H "x-api-key: ${KEY}" "https://${GATEWAY_HOST}/v1/hello"
-```
-
----
-
-## 10) Logs & Monitoring (quick)
-
-```bash
-# Tail last 100 logs from Cloud Run
-gcloud run services logs read "$SERVICE" --region "$REGION" --limit 100
-
-# Filter by request ID (x-cloud-trace-context piece)
-gcloud logging read \
-  "resource.type=cloud_run_revision AND resource.labels.service_name=$SERVICE AND textPayload:$(echo \"$TRACE_ID\")" \
-  --limit 50 --format="value(textPayload)"
-
-# Gateway-side logs (Service Control):
-# Use Logs Explorer filter:
-# resource.type="api" AND resource.labels.service="<your-managed-service>"
-```
-
----
-
-## 11) Optional hardening checklist
-
-```bash
-# IAM audit – ensure only gateway SA can invoke
-gcloud run services get-iam-policy "$SERVICE" --region "$REGION" \
-  --format='json(bindings[?role=="roles/run.invoker"])'
-
-# Autoscaling caps (dev vs prod)
-# dev
-gcloud run services update "$SERVICE" --region "$REGION" --max-instances=2
-# prod
-gcloud run services update "$SERVICE" --region "$REGION" --max-instances=50
-
-# Env vars
-gcloud run services update "$SERVICE" --region "$REGION" \
-  --set-env-vars="ENV=prod,LOG_LEVEL=info"
-
-# CORS – add FastAPI CORSMiddleware if browser callers (skip for server-to-server)
-```
-
----
-
-## 12) Cleanup
-
-```bash
-# Delete a gateway config (doesn't affect live gateway unless attached)
-gcloud api-gateway api-configs delete "$CONFIG_ID" --api "$API_ID" --project "$PROJECT_ID"
-
-# Delete a gateway
-gcloud api-gateway gateways delete "$GATEWAY_ID" \
-  --location "$REGION" --project "$PROJECT_ID"
-
-# Delete an API key
-gcloud services api-keys delete "$KEY_NAME" --project "$PROJECT_ID" --quiet
-
-# Delete Cloud Run service (and image if you want)
-gcloud run services delete "$SERVICE" --region "$REGION" --quiet
-gcloud artifacts docker images delete \
-  "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE}:${TAG}" --quiet
-```
-
----
-
-## Day-2: Updates
-
-* **App code change** → Rebuild & deploy Cloud Run (still private):
-
-  ```bash
-  gcloud builds submit --tag "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE}:${TAG}"
-  gcloud run deploy "$SERVICE" \
-    --image "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE}:${TAG}" \
-    --region "$REGION" --no-allow-unauthenticated
-  ```
-
-* **Gateway routing/auth change** → New config + point gateway to it:
-
-  ```bash
-  sed "s#https://YOUR_CLOUD_RUN_URL#${URL}#g" deploy/gateway-openapi.yaml > /tmp/openapi.rendered.yaml
-  CONFIG_ID="fastapi-config-$(date +%Y%m%d-%H%M%S)"
-  gcloud api-gateway api-configs create "$CONFIG_ID" \
-    --api "$API_ID" --openapi-spec /tmp/openapi.rendered.yaml \
-    --backend-auth-service-account "$GATEWAY_SA" --project "$PROJECT_ID"
-  gcloud api-gateway gateways update "$GATEWAY_ID" \
-    --api "$API_ID" --api-config "$CONFIG_ID" \
-    --location "$REGION" --project "$PROJECT_ID"
-  ```
-
----
-
-## Troubleshooting (quick)
-
-* **Gateway 401 “unregistered callers”** → you didn’t pass a **Google API key** that matches your `security` scheme (header `x-api-key`, or query `key` if you chose that).
-* **Gateway 404 but direct URL 200** → add `path_translation: APPEND_PATH_TO_ADDRESS` to each operation.
-* **Gateway 403 w/ Service Control** → ensure `servicemanagement` & `servicecontrol` APIs are enabled; if key is restricted, enable the **managed service** in this project.
-* **Direct Cloud Run 403** → expected (service is private). Use Gateway.
-* **Container readiness** → app must bind `0.0.0.0:$PORT`. For gunicorn:
-
-  ```python
-  bind = f"0.0.0.0:{os.getenv('PORT','8080')}"
-  worker_class = "uvicorn.workers.UvicornWorker"
-  ```
-
----
-
-## Configuration & Secrets
-
-- Non-sensitive config is passed as environment variables (e.g., `ENV`, `LOG_LEVEL`, `PORT`).
-- Secrets should be stored in Secret Manager and injected into Cloud Run at deploy time.
+### Manual deployment and deep-dive docs
+
+- Manual deployment (all gcloud steps): see [MANUAL_DEPLOYMENT.md](MANUAL_DEPLOYMENT.md).
+- Scripts and Make targets reference: see [scripts/SCRIPTS.md](scripts/SCRIPTS.md).
+- OpenAPI v2 spec (source of truth for API Gateway): `deploy/gateway-openapi.yaml`.
+
+### Configuration & secrets (short)
+
+- Non-secret app config for local/dev → `.env.app` (e.g., `ENV`, `LOG_LEVEL`, `PORT`).
+- Infra/deploy identifiers → `.env.infra` (e.g., `PROJECT_ID`, `REGION`, `SERVICE`).
+- Deployment-time bindings → `.env.deploy.<env>` with:
+  - `SECRETS` (Secret Manager names, not values), e.g., `API_TOKEN=api-token:latest`
+  - `ENV_VARS` (regular env vars), e.g., `ENV=prod,LOG_LEVEL=info`
 
 ### Local development
 
-1. Create `.env` from the template and fill local values (never commit real secrets):
+```bash
+make dev
+# app served at http://localhost:${PORT:-8080}
+```
 
-   ```bash
-   make env-example
-   # edit .env
-   ```
+### Day-2 basics
 
-2. Run the app locally (the dev script auto-loads `.env`):
-
-   ```bash
-   make dev
-   ```
-
-### Production (Cloud Run)
-
-1. Create secrets and add versions:
-
-   ```bash
-   gcloud secrets create api-token --replication-policy=automatic --project "$PROJECT_ID"
-   printf "%s" "your-token" | gcloud secrets versions add api-token --data-file=- --project "$PROJECT_ID"
-   ```
-
-2. Attach secrets during deploy using `SECRETS` in `.env` or pass inline:
-
-   - In `.env` (names only):
-
-     ```bash
-     SECRETS="API_TOKEN=api-token:latest"
-     ```
-
-   - Or inline:
-
-     ```bash
-     gcloud run deploy "$SERVICE" \
-       --image "$IMG_URI" --region "$REGION" --no-allow-unauthenticated \
-       --set-secrets "API_TOKEN=api-token:latest"
-     ```
-
-3. The app reads secrets from env, and also supports an optional `*_FILE` fallback if you mount secrets as files.
-
-Notes:
-- Rotate by adding a new secret version and redeploying (use `:latest` or pin a number).
-- Grant only your Cloud Run runtime service account `Secret Manager Secret Accessor` on used secrets.
-
-### Non-secret environment variables
-
-- You can set non-secret env vars at deploy time. Using the script via `.env`:
-
-  ```bash
-  # .env
-  ENV_VARS="ENV=prod,LOG_LEVEL=info,FEATURE_FLAG=true"
-  ```
-
-  Then:
-
-  ```bash
-  make build-deploy
-  ```
-
-- Or with gcloud directly:
-
-  ```bash
-  gcloud run deploy "$SERVICE" \
-    --image "$IMG_URI" --region "$REGION" --no-allow-unauthenticated \
-    --set-env-vars "ENV=prod,LOG_LEVEL=info,FEATURE_FLAG=true"
-  ```
+- App change → `make build-deploy`
+- Gateway spec change → `make gw-update`

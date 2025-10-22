@@ -30,6 +30,7 @@ gcloud services enable \
   apigateway.googleapis.com \
   servicemanagement.googleapis.com \
   servicecontrol.googleapis.com \
+  secretmanager.googleapis.com \
   apikeys.googleapis.com \
   --project "$PROJECT_ID"
 

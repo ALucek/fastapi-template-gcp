@@ -1,5 +1,9 @@
 .venv/
 .env
+\.env.infra
+\.env.app
+\.env.deploy.dev
+\.env.deploy.prod
 __pycache__/
 *.pyc
 .pytest_cache/

@@ -44,14 +44,49 @@ repo_root() {
 load_env() {
   local root
   root="$(repo_root)"
-  local env_file="$root/.env"
-  if [ ! -f "$env_file" ]; then
-    die "No .env found at repo root ($root). Run: make env-example and edit .env"
+  local files loaded caller
+  loaded=0
+  files="${ENV_FILES:-}"
+  if [ -z "$files" ]; then
+    # Choose sensible defaults based on the caller script name
+    caller="$(basename "${BASH_SOURCE[1]:-$0}")"
+    case "$caller" in
+      dev_uvicorn.sh)
+        files=".env.infra:.env.app"
+        ;;
+      build_and_deploy.sh)
+        files=".env.infra:.env.deploy.${DEPLOY_ENV:-dev}"
+        ;;
+      update_gateway.sh|doctor.sh|init_project.sh|create_api_key.sh|rotate_api_key.sh|list_api_keys.sh|delete_api_key.sh)
+        files=".env.infra"
+        ;;
+      *)
+        files=".env.infra"
+        ;;
+    esac
   fi
-  # shellcheck disable=SC1090
+
+  IFS=':' read -r -a arr <<< "$files"
   set -a
-  . "$env_file"
+  for f in "${arr[@]}"; do
+    if [ -f "$root/$f" ]; then
+      # shellcheck disable=SC1090
+      . "$root/$f"
+      loaded=1
+    fi
+  done
   set +a
+
+  # Backward compatibility: fall back to legacy .env if nothing loaded
+  if [ "$loaded" = "0" ] && [ -f "$root/.env" ]; then
+    # shellcheck disable=SC1090
+    set -a; . "$root/.env"; set +a
+    loaded=1
+  fi
+
+  if [ "$loaded" = "0" ]; then
+    die "No env files loaded. Run: make env-examples and edit .env.* files"
+  fi
 }
 
 timestamp() {

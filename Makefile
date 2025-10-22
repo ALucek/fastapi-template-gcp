@@ -1,9 +1,12 @@
-.PHONY: env-example api-key build-deploy gw-update init rotate-key keys del-key dev doctor
+.PHONY: env-example env-examples api-key build-deploy gw-update init rotate-key keys del-key dev doctor
 
 ROOT := $(shell pwd)
 
-env-example:
-	@[ -f $(ROOT)/.env ] || cp $(ROOT)/env.example $(ROOT)/.env && echo ".env created from env.example" || echo ".env already exists"
+env-examples:
+	@[ -f $(ROOT)/.env.infra ] || (cp $(ROOT)/.env.infra.example $(ROOT)/.env.infra && echo ".env.infra created") || true
+	@[ -f $(ROOT)/.env.app ] || (cp $(ROOT)/.env.app.example $(ROOT)/.env.app && echo ".env.app created") || true
+	@[ -f $(ROOT)/.env.deploy.dev ] || (cp $(ROOT)/.env.deploy.dev.example $(ROOT)/.env.deploy.dev && echo ".env.deploy.dev created") || true
+	@[ -f $(ROOT)/.env.deploy.prod ] || (cp $(ROOT)/.env.deploy.prod.example $(ROOT)/.env.deploy.prod && echo ".env.deploy.prod created") || true
 
 api-key:
 	CMD="bash scripts/create_api_key.sh"; \

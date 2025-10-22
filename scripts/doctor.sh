@@ -30,7 +30,7 @@ fi
 require_env_vars PROJECT_ID REGION SERVICE API_ID GATEWAY_ID || PASS=0
 
 # 2) required APIs
-REQ_APIS=(run.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com apigateway.googleapis.com servicemanagement.googleapis.com servicecontrol.googleapis.com apikeys.googleapis.com)
+REQ_APIS=(run.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com apigateway.googleapis.com servicemanagement.googleapis.com servicecontrol.googleapis.com secretmanager.googleapis.com apikeys.googleapis.com)
 ENABLED="$(gcloud services list --enabled --project "$PROJECT_ID" --format='value(config.name)')"
 MISSING=()
 for A in "${REQ_APIS[@]}"; do
