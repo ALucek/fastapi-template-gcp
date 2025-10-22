@@ -15,8 +15,9 @@ fi
 
 URL="$(cloud_run_url)"
 
-RENDERED="$(mktemp /tmp/openapi.rendered.XXXXXX.yaml)"
-trap 'rm -f "$RENDERED"' EXIT
+RENDERED_DIR="$(mktemp -d /tmp/openapi.rendered.XXXXXX)"
+RENDERED="$RENDERED_DIR/openapi.rendered.yaml"
+trap 'rm -rf "$RENDERED_DIR"' EXIT
 
 if [ ! -f "$OPENAPI_SPEC" ]; then
   echo "OpenAPI spec file not found: $OPENAPI_SPEC" >&2
