@@ -44,7 +44,7 @@ repo_root() {
 load_env() {
   local root
   root="$(repo_root)"
-  local files loaded caller
+  local files loaded caller missing
   loaded=0
   files="${ENV_FILES:-}"
   if [ -z "$files" ]; then
@@ -70,24 +70,25 @@ load_env() {
   fi
 
   IFS=':' read -r -a arr <<< "$files"
-  local requested_env_deploy loaded_env_deploy
-  requested_env_deploy=0
-  loaded_env_deploy=0
-  if [[ ":$files:" == *":.env.deploy:"* ]]; then
-    requested_env_deploy=1
-  fi
   set -a
+  missing=()
   for f in "${arr[@]}"; do
     if [ -f "$root/$f" ]; then
       # shellcheck disable=SC1090
       . "$root/$f"
       loaded=1
-      if [ "$f" = ".env.deploy" ]; then
-        loaded_env_deploy=1
-      fi
+    else
+      missing+=("$f")
     fi
   done
   set +a
+
+  if [ ${#missing[@]} -gt 0 ]; then
+    local missing_list
+    missing_list=$(printf '%s, ' "${missing[@]}")
+    missing_list=${missing_list%, }
+    die "Missing env file(s): $missing_list. Run: make env-examples to create them"
+  fi
 
   if [ "$loaded" = "0" ]; then
     die "No env files loaded. Run: make env-examples and edit .env.* files"
