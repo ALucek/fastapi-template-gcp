@@ -13,15 +13,6 @@ if [ -z "${GATEWAY_SA:-}" ]; then
   GATEWAY_SA="apigw-invoker@${PROJECT_ID}.iam.gserviceaccount.com"
 fi
 
-SKIP_BUILD="0"
-SKIP_GATEWAY="0"
-for arg in "$@"; do
-  case "$arg" in
-    --skip-build) SKIP_BUILD="1" ;;
-    --skip-gateway) SKIP_GATEWAY="1" ;;
-  esac
-done
-
 echo "Enabling required Google APIs (idempotent)"
 gcloud services enable \
   run.googleapis.com \
@@ -50,12 +41,17 @@ gcloud iam service-accounts create "$SA_NAME" \
   --display-name="API Gateway Invoker" \
   --project "$PROJECT_ID" >/dev/null 2>&1 || true
 
-if [ "$SKIP_BUILD" = "0" ]; then
-  echo "Building and deploying Cloud Run service"
-  bash "$SCRIPT_DIR/build_and_deploy.sh"
-else
-  echo "Skipping build & deploy per flag"
-fi
+# Grant project-level Secret Manager access to the Cloud Run runtime service account
+# This avoids per-secret parsing and ensures access to any current/future secrets in the project
+PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
+RUN_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+echo "Granting project-level Secret Manager access to ${RUN_SA}"
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${RUN_SA}" \
+  --role="roles/secretmanager.secretAccessor" >/dev/null 2>&1 || true
+
+echo "Building and deploying Cloud Run service"
+bash "$SCRIPT_DIR/build_and_deploy.sh"
 
 echo "Granting Cloud Run invoker role to $GATEWAY_SA on service $SERVICE"
 gcloud run services add-iam-policy-binding "$SERVICE" \
@@ -63,12 +59,8 @@ gcloud run services add-iam-policy-binding "$SERVICE" \
   --member="serviceAccount:${GATEWAY_SA}" \
   --role="roles/run.invoker" >/dev/null 2>&1 || true
 
-if [ "$SKIP_GATEWAY" = "0" ]; then
-  echo "Rendering OpenAPI and updating API Gateway"
-  bash "$SCRIPT_DIR/update_gateway.sh"
-else
-  echo "Skipping gateway update per flag"
-fi
+echo "Rendering OpenAPI and updating API Gateway"
+bash "$SCRIPT_DIR/update_gateway.sh"
 
 URL="$(cloud_run_url)"
 HOST="$(gcloud api-gateway gateways describe "$GATEWAY_ID" \

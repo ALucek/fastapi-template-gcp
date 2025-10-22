@@ -55,9 +55,12 @@ load_env() {
         files=".env.infra:.env.app"
         ;;
       build_and_deploy.sh)
-        files=".env.infra:.env.deploy.${DEPLOY_ENV:-dev}"
+        files=".env.infra:.env.deploy"
         ;;
-      update_gateway.sh|doctor.sh|init_project.sh|create_api_key.sh|rotate_api_key.sh|list_api_keys.sh|delete_api_key.sh)
+      init_project.sh)
+        files=".env.infra:.env.deploy"
+        ;;
+      update_gateway.sh|doctor.sh|create_api_key.sh|list_api_keys.sh|delete_api_key.sh)
         files=".env.infra"
         ;;
       *)
@@ -67,12 +70,21 @@ load_env() {
   fi
 
   IFS=':' read -r -a arr <<< "$files"
+  local requested_env_deploy loaded_env_deploy
+  requested_env_deploy=0
+  loaded_env_deploy=0
+  if [[ ":$files:" == *":.env.deploy:"* ]]; then
+    requested_env_deploy=1
+  fi
   set -a
   for f in "${arr[@]}"; do
     if [ -f "$root/$f" ]; then
       # shellcheck disable=SC1090
       . "$root/$f"
       loaded=1
+      if [ "$f" = ".env.deploy" ]; then
+        loaded_env_deploy=1
+      fi
     fi
   done
   set +a

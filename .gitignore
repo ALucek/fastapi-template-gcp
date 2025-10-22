@@ -1,9 +1,8 @@
 .venv/
 .env
-\.env.infra
-\.env.app
-\.env.deploy.dev
-\.env.deploy.prod
+.env.infra
+.env.app
+.env.deploy
 __pycache__/
 *.pyc
 .pytest_cache/

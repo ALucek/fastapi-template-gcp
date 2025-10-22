@@ -12,11 +12,11 @@ This is the authoritative reference for the automation scripts and `make` target
 Run `make env-examples` to scaffold split env files:
 - `.env.infra` – infra identifiers: `PROJECT_ID`, `REGION`, `REPO`, `IMAGE`, `TAG`, `SERVICE`, `API_ID`, `GATEWAY_ID`, optional `GATEWAY_SA`, `OPENAPI_SPEC`.
 - `.env.app` – local app config: `ENV`, `LOG_LEVEL`, `PORT`.
-- `.env.deploy.dev` / `.env.deploy.prod` – `SECRETS` and `ENV_VARS` for deploy-time bindings.
+- `.env.deploy` – `SECRETS` and `ENV_VARS` for deploy-time bindings.
 
 Scripts choose sensible defaults:
 - Dev server uses `.env.infra:.env.app`.
-- Build & deploy uses `.env.infra:.env.deploy.${DEPLOY_ENV:-dev}`.
+- Build & deploy uses `.env.infra:.env.deploy`.
 - Others use `.env.infra`.
 Override by setting `ENV_FILES` (colon-separated) if needed.
 
@@ -27,9 +27,8 @@ Override by setting `ENV_FILES` (colon-separated) if needed.
 | `env-examples`  | —                              | Create split env files from `.example` files | —                                            |
 | `build-deploy`  | `scripts/build_and_deploy.sh`  | Build image and deploy Cloud Run (private)   | `SECRETS`, `ENV_VARS` via `.env`              |
 | `gw-update`     | `scripts/update_gateway.sh`    | Render OpenAPI with URL and update gateway   | —                                            |
-| `init`          | `scripts/init_project.sh`      | One-time/init: enable APIs, SA, deploy, GW   | `--skip-build`, `--skip-gateway`             |
+| `init`          | `scripts/init_project.sh`      | One-time/init: enable APIs, SA, deploy, GW   | —                                            |
 | `api-key`       | `scripts/create_api_key.sh`    | Create API key restricted to managed service | `--prefix <str>`, `--print-key`              |
-| `rotate-key`    | `scripts/rotate_api_key.sh`    | Create new key, restrict; optionally retire  | `--old <name|display>`, `--delete-old`, `--print-key` |
 | `keys`          | `scripts/list_api_keys.sh`     | List API keys with restrictions              | —                                            |
 | `del-key`       | `scripts/delete_api_key.sh`    | Delete API key (confirm unless `--yes`)      | `--yes`                                      |
 | `dev`           | `scripts/dev_uvicorn.sh`       | Run uvicorn locally with reload              | Uses `PORT`                                  |
@@ -76,15 +75,7 @@ Provides: `die`, `ensure_command`, `require_env_vars`, `load_env` (layered: defa
   - `--prefix <str>`: change display name prefix (default `gw`).
 - Output: `KEY_NAME` and managed service; optionally `KEY`.
 
-### scripts/rotate_api_key.sh
 
-- Synopsis: Create a new restricted key; optionally disable or delete a specified old key.
-- Requires env: `PROJECT_ID`, `API_ID`, `GATEWAY_ID`.
-- Flags:
-  - `--old <name|displayName>`: old key to act on (resource name or display).
-  - `--delete-old`: delete the old key (otherwise attempt to inactivate).
-  - `--print-key`: print new key string once.
-- Output: `NEW_KEY_NAME` and managed service; optionally `KEY`.
 
 ### scripts/list_api_keys.sh
 

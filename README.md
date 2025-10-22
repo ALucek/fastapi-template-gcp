@@ -20,7 +20,7 @@ gcloud auth login
 gcloud config set project YOUR_PROJECT_ID
 make env-examples
 # edit .env.infra and .env.app
-# optional: edit .env.deploy.dev / .env.deploy.prod
+# optional: edit .env.deploy
 ```
 
 ### Quickstart (automation)
@@ -30,7 +30,7 @@ make env-examples
 make init
 
 # build & deploy Cloud Run (private)
-make build-deploy            # uses .env.infra + .env.deploy.dev by default; override with DEPLOY_ENV=prod
+make build-deploy            # uses .env.infra + .env.deploy
 
 # update API Gateway spec and point gateway to new config
 make gw-update
@@ -40,7 +40,6 @@ make api-key
 
 # key management
 make keys
-make rotate-key OLD=<KEY_NAME> [DELETE=true] [PRINT=true]
 make del-key KEY_NAME=<KEY_NAME> [YES=true]
 
 # local dev (reload)
@@ -67,7 +66,7 @@ bash scripts/create_api_key.sh --print-key
 
 - Non-secret app config for local/dev → `.env.app` (e.g., `ENV`, `LOG_LEVEL`, `PORT`).
 - Infra/deploy identifiers → `.env.infra` (e.g., `PROJECT_ID`, `REGION`, `SERVICE`).
-- Deployment-time bindings → `.env.deploy.<env>` with:
+- Deployment-time bindings → `.env.deploy` with:
   - `SECRETS` (Secret Manager names, not values), e.g., `API_TOKEN=api-token:latest`
   - `ENV_VARS` (regular env vars), e.g., `ENV=prod,LOG_LEVEL=info`
 
