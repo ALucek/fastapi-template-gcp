@@ -38,7 +38,7 @@ Override by setting `ENV_FILES` (colon-separated) if needed.
 
 ### scripts/lib.sh (shared helpers)
 
-Provides: `die`, `ensure_command`, `require_env_vars`, `load_env` (layered: defaults per script, `ENV_FILES` override, `.env` fallback), `timestamp`, `cloud_run_url`, `managed_service_name`.
+Provides: `die`, `ensure_command`, `require_env_vars`, `load_env` (layered: defaults per script, `ENV_FILES` override), `timestamp`, `cloud_run_url`, `managed_service_name`.
 
 ---
 
