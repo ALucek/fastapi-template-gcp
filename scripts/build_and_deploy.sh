@@ -9,6 +9,11 @@ load_env
 ensure_command gcloud
 require_env_vars PROJECT_ID REGION REPO IMAGE TAG SERVICE
 
+# Allow overrides via environment variables or .env.deploy
+MAX_INSTANCES="${MAX_INSTANCES:-10}"
+CONCURRENCY="${CONCURRENCY:-80}"
+MEMORY="${MEMORY:-512Mi}"
+
 # Ensure Artifact Registry repo exists (idempotent safe)
 gcloud artifacts repositories create "$REPO" \
   --repository-format=docker \
@@ -28,10 +33,10 @@ DEPLOY_ARGS=(
   --region "$REGION"
   --no-allow-unauthenticated
   --min-instances=0
-  --max-instances=10
-  --concurrency=80
+  --max-instances="$MAX_INSTANCES"
+  --concurrency="$CONCURRENCY"
   --cpu=1
-  --memory=512Mi
+  --memory="$MEMORY"
   --cpu-throttling
   --project "$PROJECT_ID"
 )
