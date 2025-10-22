@@ -1,6 +1,6 @@
 ## FastAPI on Cloud Run behind API Gateway
 
-Minimal template to manually run FastAPI on Cloud Run as a private service, fronted by API Gateway enforcing Google API Key auth (`x-api-key`).
+Minimal template to run FastAPI on Cloud Run as a private service, fronted by API Gateway enforcing Google API Key auth (`x-api-key`).
 
 ### How it works (flow)
 
