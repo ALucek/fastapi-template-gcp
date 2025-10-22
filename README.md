@@ -72,6 +72,12 @@ gcloud run deploy "$SERVICE" \
   --image "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE}:${TAG}" \
   --region "$REGION" \
   --no-allow-unauthenticated \
+  --min-instances=0 \
+  --max-instances=10 \
+  --concurrency=80 \
+  --cpu=1 \
+  --memory=512Mi \
+  --cpu-throttling \
   --project "$PROJECT_ID"
 ```
 
