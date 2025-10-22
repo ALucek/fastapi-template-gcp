@@ -46,9 +46,7 @@ Provides: `die`, `ensure_command`, `require_env_vars`, `load_env` (layered: defa
 
 - Synopsis: Enable required APIs, ensure Artifact Registry and Gateway SA, build & deploy Cloud Run, grant `run.invoker`, update API Gateway.
 - Requires env: `PROJECT_ID`, `REGION`, `REPO`, `IMAGE`, `TAG`, `SERVICE`, `API_ID`, `GATEWAY_ID` (optional `GATEWAY_SA`).
-- Flags:
-  - `--skip-build`: skip building/deploying the service.
-  - `--skip-gateway`: skip gateway update.
+- Flags: None
 - Idempotency: Safe to re-run; create calls use `|| true` where applicable.
 
 ### scripts/build_and_deploy.sh
@@ -58,6 +56,9 @@ Provides: `die`, `ensure_command`, `require_env_vars`, `load_env` (layered: defa
 - Optional env:
   - `SECRETS`: comma-separated secret bindings (e.g., `API_TOKEN=api-token:latest`).
   - `ENV_VARS`: comma-separated env vars (e.g., `ENV=prod,LOG_LEVEL=info`).
+  - `MAX_INSTANCES` (default `10`)
+  - `CONCURRENCY` (default `80`)
+  - `MEMORY` (default `512Mi`)
 - Output: Prints Cloud Run URL after deploy.
 
 ### scripts/update_gateway.sh
