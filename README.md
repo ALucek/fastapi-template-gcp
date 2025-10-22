@@ -13,6 +13,45 @@ gcloud config set project YOUR_PROJECT_ID
 
 ---
 
+## Quickstart: Automation
+
+```bash
+# create .env from template
+make env-example
+
+# build & deploy Cloud Run (private)
+make build-deploy
+
+# update API Gateway spec and point gateway to new config
+make gw-update
+
+# create a Google API key restricted to the managed service (does not print key string)
+make api-key
+
+# project initialization (one-time or idempotent)
+make init
+
+# key management
+make keys
+make rotate-key OLD=<KEY_NAME> [DELETE=true] [PRINT=true]
+make del-key KEY_NAME=<KEY_NAME> [YES=true]
+
+# local dev (reload)
+make dev
+
+# diagnostics
+make doctor
+```
+
+Advanced:
+
+```bash
+# If you need the key string just once (avoid printing normally):
+bash scripts/create_api_key.sh --print-key
+```
+
+---
+
 ## 1) Vars (edit once)
 
 ```bash
