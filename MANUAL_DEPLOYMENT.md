@@ -11,6 +11,32 @@ Prefer automation? See the Quickstart and Make targets in [README.md](README.md)
 - Project variables exported in your shell or defined in `.env.infra` (see `.env.infra.example`)
 - OpenAPI v2 spec at `deploy/gateway-openapi.yaml` (source of truth)
 
+### Export required environment variables
+
+```bash
+# Core identifiers
+export PROJECT_ID="your-gcp-project"
+export REGION="us-central1"
+export REPO="fastapi"
+export IMAGE="fastapi"
+export TAG="dev"
+export SERVICE="fastapi"
+export API_ID="fastapi"
+export GATEWAY_ID="fastapi-gw"
+
+# Gateway invoker Service Account (default used by scripts)
+export GATEWAY_SA="apigw-invoker@${PROJECT_ID}.iam.gserviceaccount.com"
+
+# OpenAPI spec path (override if you keep it elsewhere)
+export OPENAPI_SPEC="deploy/gateway-openapi.yaml"
+
+# Optional deploy-time settings
+# Secret Manager bindings, e.g., API_TOKEN=api-token:latest
+export SECRETS=""
+# Regular env vars, e.g., ENV=prod,LOG_LEVEL=info
+export ENV_VARS=""
+```
+
 ### 1) Enable services
 
 ```bash
@@ -55,6 +81,18 @@ gcloud run deploy "$SERVICE" \
   --project "$PROJECT_ID"
 ```
 
+Optional: attach secrets and/or regular env vars on deploy (requires Secret Manager access; see snippet below):
+
+```bash
+gcloud run deploy "$SERVICE" \
+  --image "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE}:${TAG}" \
+  --region "$REGION" \
+  --no-allow-unauthenticated \
+  --set-secrets "${SECRETS}" \
+  --set-env-vars "${ENV_VARS}" \
+  --project "$PROJECT_ID"
+```
+
 Get the Cloud Run URL (used when rendering the gateway spec):
 
 ```bash
@@ -62,6 +100,16 @@ export URL="$(gcloud run services describe "$SERVICE" \
   --region "$REGION" --project "$PROJECT_ID" \
   --format='value(status.url)')"
 echo "Cloud Run URL: $URL"
+```
+
+If you plan to use `--set-secrets`, grant the Cloud Run runtime service account project-level Secret Manager access (idempotent):
+
+```bash
+PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
+RUN_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${RUN_SA}" \
+  --role="roles/secretmanager.secretAccessor"
 ```
 
 ### 4) Gateway invoker service account and IAM binding
@@ -111,8 +159,8 @@ x-google-quota:
 ### 6) Render spec with Cloud Run URL and create API config
 
 ```bash
-RENDERED="/tmp/openapi.rendered.yaml"
-sed "s#https://YOUR_CLOUD_RUN_URL#${URL}#g" deploy/gateway-openapi.yaml > "$RENDERED"
+RENDERED="$(mktemp /tmp/openapi.rendered.XXXXXX.yaml)"
+sed "s#https://YOUR_CLOUD_RUN_URL#${URL}#g" "${OPENAPI_SPEC:-deploy/gateway-openapi.yaml}" > "$RENDERED"
 
 gcloud api-gateway apis create "$API_ID" --project "$PROJECT_ID" || true
 
@@ -280,15 +328,19 @@ gcloud builds submit --tag "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMA
 gcloud run deploy "$SERVICE" \
   --image "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE}:${TAG}" \
   --region "$REGION" --no-allow-unauthenticated
+# optionally:
+#  --set-secrets "${SECRETS}" \
+#  --set-env-vars "${ENV_VARS}"
 ```
 
 - Gateway routing/auth change → New config + point gateway to it
 
 ```bash
-sed "s#https://YOUR_CLOUD_RUN_URL#${URL}#g" deploy/gateway-openapi.yaml > /tmp/openapi.rendered.yaml
+RENDERED="$(mktemp /tmp/openapi.rendered.XXXXXX.yaml)"
+sed "s#https://YOUR_CLOUD_RUN_URL#${URL}#g" "${OPENAPI_SPEC:-deploy/gateway-openapi.yaml}" > "$RENDERED"
 CONFIG_ID="fastapi-config-$(date +%Y%m%d-%H%M%S)"
 gcloud api-gateway api-configs create "$CONFIG_ID" \
-  --api "$API_ID" --openapi-spec /tmp/openapi.rendered.yaml \
+  --api "$API_ID" --openapi-spec "$RENDERED" \
   --backend-auth-service-account "$GATEWAY_SA" --project "$PROJECT_ID"
 gcloud api-gateway gateways update "$GATEWAY_ID" \
   --api "$API_ID" --api-config "$CONFIG_ID" \
