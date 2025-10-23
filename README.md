@@ -152,6 +152,13 @@ make doctor
   - `SECRETS` (Secret Manager names, not values), e.g., `API_TOKEN=api-token:latest`
   - `ENV_VARS` (regular env vars), e.g., `ENV=prod,LOG_LEVEL=info`
 
+### Logging configuration
+
+At runtime the service reads logging preferences from environment variables:
+
+- `LOG_LEVEL` (default: `INFO`) — one of `CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG`, or `NOTSET`.
+- `LOG_JSON` (default: `true`) — set to `false` to emit plain-text logs with timestamps instead of JSON payloads.
+
 ### Local development
 
 ```bash

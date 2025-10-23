@@ -4,8 +4,8 @@ from app.utils.logging import configure_logging
 from app.api.v1.routes import router as v1_router
 
 def create_app() -> FastAPI:
-    configure_logging(json=True)
     settings = get_settings()
+    configure_logging(settings=settings)
 
     app = FastAPI(
         title=settings.service_name,
