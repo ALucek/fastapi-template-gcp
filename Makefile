@@ -2,8 +2,6 @@
 
 ROOT := $(shell pwd)
 
-env-example: env-examples
-
 env-examples:
 	@[ -f $(ROOT)/.env.infra ] || ( \
 		if [ -f $(ROOT)/.env.infra.example ]; then \
