@@ -86,6 +86,8 @@ These convenience targets wrap the scripts in `scripts/` and set sane defaults.
 make env-examples
 ```
 
+If you ever delete the `.env.infra`, `.env.app`, or `.env.deploy` files, rerun `make env-examples` (or `make env-example`) to regenerate them from their templates. The command will error out when a corresponding `.env.*.example` file is missing so you notice and restore the template before continuing.
+
 - **`init`**: End-to-end project bootstrap (enable APIs, build & deploy Cloud Run, grant IAM, render OpenAPI, create/update Gateway).
 
 ```bash
