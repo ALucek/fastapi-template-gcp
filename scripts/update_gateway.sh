@@ -53,38 +53,4 @@ HOST="$(gcloud api-gateway gateways describe "$GATEWAY_ID" \
 
 echo "Gateway Hostname: https://${HOST}"
 
-CURRENT_CFG_PATH="$(gcloud api-gateway gateways describe "$GATEWAY_ID" \
-  --location "$REGION" --project "$PROJECT_ID" \
-  --format='value(apiConfig)')"
-CURRENT_CFG="${CURRENT_CFG_PATH##*/}"
-
-KEEP_RECENT_CONFIGS="${KEEP_RECENT_CONFIGS:-3}"
-
-echo "Cleaning up stale API configs (keeping ${KEEP_RECENT_CONFIGS})"
-mapfile -t CONFIG_PATHS < <(gcloud api-gateway api-configs list \
-  --api="$API_ID" --project="$PROJECT_ID" \
-  --sort-by=~createTime --format='value(name)')
-
-KEPT=0
-for CONFIG_PATH in "${CONFIG_PATHS[@]}"; do
-  [[ -n "$CONFIG_PATH" ]] || continue
-
-  CONFIG_NAME="${CONFIG_PATH##*/}"
-
-  if [[ "$CONFIG_NAME" == "$CURRENT_CFG" ]]; then
-    ((KEPT++))
-    continue
-  fi
-
-  if (( KEPT < KEEP_RECENT_CONFIGS )); then
-    ((KEPT++))
-    continue
-  fi
-
-  echo "Deleting stale API config: ${CONFIG_NAME}"
-  gcloud api-gateway api-configs delete "$CONFIG_NAME" \
-    --api="$API_ID" --project="$PROJECT_ID" --quiet || \
-    echo "Warning: Failed to delete API config ${CONFIG_NAME}"
-done
-
 
