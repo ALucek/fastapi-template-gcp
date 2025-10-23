@@ -2,10 +2,33 @@
 
 ROOT := $(shell pwd)
 
+env-example: env-examples
+
 env-examples:
-	@[ -f $(ROOT)/.env.infra ] || (cp $(ROOT)/.env.infra.example $(ROOT)/.env.infra && echo ".env.infra created") || true
-	@[ -f $(ROOT)/.env.app ] || (cp $(ROOT)/.env.app.example $(ROOT)/.env.app && echo ".env.app created") || true
-	@[ -f $(ROOT)/.env.deploy ] || (cp $(ROOT)/.env.deploy.example $(ROOT)/.env.deploy && echo ".env.deploy created") || true
+	@[ -f $(ROOT)/.env.infra ] || ( \
+		if [ -f $(ROOT)/.env.infra.example ]; then \
+			cp $(ROOT)/.env.infra.example $(ROOT)/.env.infra && echo ".env.infra created"; \
+		else \
+			echo "Missing $(ROOT)/.env.infra.example. Cannot create .env.infra." >&2; \
+			exit 1; \
+		fi \
+	)
+	@[ -f $(ROOT)/.env.app ] || ( \
+		if [ -f $(ROOT)/.env.app.example ]; then \
+			cp $(ROOT)/.env.app.example $(ROOT)/.env.app && echo ".env.app created"; \
+		else \
+			echo "Missing $(ROOT)/.env.app.example. Cannot create .env.app." >&2; \
+			exit 1; \
+		fi \
+	)
+	@[ -f $(ROOT)/.env.deploy ] || ( \
+		if [ -f $(ROOT)/.env.deploy.example ]; then \
+			cp $(ROOT)/.env.deploy.example $(ROOT)/.env.deploy && echo ".env.deploy created"; \
+		else \
+			echo "Missing $(ROOT)/.env.deploy.example. Cannot create .env.deploy." >&2; \
+			exit 1; \
+		fi \
+	)
 
 api-key:
 	PREFIX="$(PREFIX)" KEY_PREFIX="$(KEY_PREFIX)" PRINT_KEY="$(PRINT_KEY)" bash scripts/create_api_key.sh
