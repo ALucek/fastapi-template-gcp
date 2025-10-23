@@ -1,6 +1,9 @@
-from pydantic import Field, ValidationError, SecretStr
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+from typing import Literal
+
+from pydantic import Field, SecretStr, ValidationError, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 import os
 import pathlib
 
@@ -18,6 +21,8 @@ class Settings(BaseSettings):
     port: int = Field(default=int(os.getenv("PORT", 8080)))
     service_name: str = "fastapi-cloudrun"
     service_version: str = "1.0.0"
+    log_level: Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"] = "INFO"
+    log_json: bool = True
 
     # Example secret (injected via Cloud Run --set-secrets or local .env)
     api_token: SecretStr | None = Field(default=None)
@@ -26,6 +31,15 @@ class Settings(BaseSettings):
         # Support *_FILE fallback commonly used when secrets are mounted as files
         data.setdefault("api_token", _env_or_file("API_TOKEN"))
         super().__init__(**data)
+
+    @field_validator("log_level", mode="before")
+    @classmethod
+    def _normalize_log_level(cls, value: str) -> str:
+        if isinstance(value, str):
+            upper_value = value.upper()
+            if upper_value in {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"}:
+                return upper_value
+        return value
 
 @lru_cache()
 def get_settings() -> Settings:
