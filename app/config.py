@@ -16,7 +16,7 @@ def _env_or_file(name: str) -> str | None:
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=(".env.app", ".env"), case_sensitive=False)
+    model_config = SettingsConfigDict(env_file=(".env.app", ".env"), case_sensitive=False, extra="ignore")
 
     port: int = Field(default=8080, validation_alias=AliasChoices("PORT", "APP_PORT"))
     service_name: str = "fastapi-cloudrun"
