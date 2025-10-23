@@ -1,4 +1,4 @@
-from pydantic import Field, ValidationError, SecretStr
+from pydantic import AliasChoices, Field, ValidationError, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 import os
@@ -15,7 +15,7 @@ def _env_or_file(name: str) -> str | None:
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=(".env.app", ".env"), case_sensitive=False)
 
-    port: int = Field(default=int(os.getenv("PORT", 8080)))
+    port: int = Field(default=8080, validation_alias=AliasChoices("PORT", "APP_PORT"))
     service_name: str = "fastapi-cloudrun"
     service_version: str = "1.0.0"
 
