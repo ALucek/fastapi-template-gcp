@@ -1,21 +1,28 @@
 # docker/gunicorn_conf.py
-import multiprocessing
 import os
-
-# Bind to the port Cloud Run provides (defaults to 8080, but don't assume)
+# Bind to Cloud Run's provided port (default 8080).
 bind = f"0.0.0.0:{os.getenv('PORT', '8080')}"
 
-# Scale up later if needed.
+# Workers
 workers = 1
 
-# Required for FastAPI under gunicorn
+# ASGI via Uvicorn worker
 worker_class = "uvicorn.workers.UvicornWorker"
 
-# Cold start + dependency import headroom
-timeout = 120
-graceful_timeout = 120
+# Trust Cloud Run's X-Forwarded-* headers
+forwarded_allow_ips = "*"
 
+# Stability / lifecycle
+timeout = 120
+graceful_timeout = 60
 keepalive = 5
+
+# Periodic worker restarts to avoid memory creep
+max_requests = 1000
+max_requests_jitter = 100
+
+# Logging to stdout/stderr for Cloud Run
 accesslog = "-"
 errorlog = "-"
 loglevel = "info"
+access_log_format = '%(h)s %(l)s %(u)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(L)ss'
