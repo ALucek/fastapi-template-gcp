@@ -1,4 +1,4 @@
-.PHONY: env-example env-examples api-key build-deploy gw-update init keys del-key dev doctor
+.PHONY: env-example env-examples api-key build-deploy gw-update init keys del-key dev dev-down dev-logs dev-rebuild doctor
 
 ROOT := $(shell pwd)
 
@@ -50,7 +50,16 @@ del-key:
 	YES="$(YES)" bash scripts/delete_api_key.sh "$(KEY_NAME)"
 
 dev:
-	bash scripts/dev_uvicorn.sh
+	docker compose up --build
+
+dev-down:
+	docker compose down --remove-orphans
+
+dev-logs:
+	docker compose logs -f --tail=200
+
+dev-rebuild:
+	docker compose build --no-cache && docker compose up
 
 doctor:
 	bash scripts/doctor.sh

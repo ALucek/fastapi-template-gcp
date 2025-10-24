@@ -6,6 +6,7 @@ This is the authoritative reference for the automation scripts and `make` target
 
 - gcloud
 - jq (for key management scripts)
+- Docker (for local dev with Docker Compose)
 
 ### Environment files and variables
 
@@ -18,6 +19,7 @@ Scripts choose sensible defaults:
 - Dev server uses `.env.infra:.env.app`.
 - Build & deploy uses `.env.infra:.env.deploy`.
 - Others use `.env.infra`.
+- Compose dev uses `.env.app` (via docker-compose `env_file`).
 Override by setting `ENV_FILES` (colon-separated) if needed.
 
 ### Make target → Script mapping
@@ -31,7 +33,10 @@ Override by setting `ENV_FILES` (colon-separated) if needed.
 | `api-key`       | `scripts/create_api_key.sh`    | Create API key restricted to managed service | `KEY_PREFIX`, `PRINT_KEY=1`                  |
 | `keys`          | `scripts/list_api_keys.sh`     | List API keys with restrictions              | —                                            |
 | `del-key`       | `scripts/delete_api_key.sh`    | Delete API key (confirm unless YES=true)     | `YES=true`                                   |
-| `dev`           | `scripts/dev_uvicorn.sh`       | Run uvicorn locally with reload              | Uses `PORT`                                  |
+| `dev`           | —                              | Run Docker Compose dev (gunicorn)            | —                                            |
+| `dev-down`      | —                              | Stop and remove dev containers               | —                                            |
+| `dev-logs`      | —                              | Tail logs from dev                           | —                                            |
+| `dev-rebuild`   | —                              | Rebuild image without cache and start        | —                                            |
 | `doctor`        | `scripts/doctor.sh`            | Validate setup and probe endpoints           | —                                            |
 
 ---

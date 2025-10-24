@@ -19,6 +19,7 @@ Minimal template to run FastAPI on Cloud Run as a private service, fronted by AP
 
 - gcloud CLI installed and logged in
 - jq installed (for key scripts)
+- Docker (for local dev with Docker Compose)
 
 ### End-to-end in 5 steps
 
@@ -73,7 +74,7 @@ make doctor
 - `scripts/create_api_key.sh`: Create a Google API key and restrict it to the Gateway managed service. Config via env: `PRINT_KEY=1`, `KEY_PREFIX=<str>`.
 - `scripts/list_api_keys.sh`: List API keys with restrictions.
 - `scripts/delete_api_key.sh`: Delete an API key (set `YES=true` to skip confirmation).
-- `scripts/dev_uvicorn.sh`: Run local dev server with reload.
+- `scripts/dev_uvicorn.sh`: Run local dev server with reload (optional; Docker Compose dev is the default).
 - `scripts/doctor.sh`: Validate environment, required APIs, IAM, and probe health endpoints.
 
 ### Make targets
@@ -132,10 +133,28 @@ make del-key KEY_NAME=<KEY_NAME>
 make del-key KEY_NAME=<KEY_NAME> YES=true
 ```
 
-- **`dev`**: Run local FastAPI server with autoreload.
+- **`dev`**: Start local development via Docker Compose (gunicorn; prod parity).
 
 ```bash
 make dev
+```
+
+- **`dev-logs`**: Tail logs from Docker Compose dev.
+
+```bash
+make dev-logs
+```
+
+- **`dev-down`**: Stop and remove dev containers.
+
+```bash
+make dev-down
+```
+
+- **`dev-rebuild`**: Rebuild the image without cache and start.
+
+```bash
+make dev-rebuild
 ```
 
 - **`doctor`**: Run environment and deployment diagnostics.
@@ -159,7 +178,7 @@ At runtime the service reads logging preferences from environment variables:
 - `LOG_LEVEL` (default: `INFO`) — one of `CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG`, or `NOTSET`.
 - `LOG_JSON` (default: `true`) — set to `false` to emit plain-text logs with timestamps instead of JSON payloads.
 
-### Local development
+### Local development (Docker Compose)
 
 ```bash
 make dev
