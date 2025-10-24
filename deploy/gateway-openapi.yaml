@@ -15,6 +15,7 @@ paths:
       x-google-backend:
         address: https://YOUR_CLOUD_RUN_URL
         path_translation: APPEND_PATH_TO_ADDRESS
+        jwt_audience: https://YOUR_CLOUD_RUN_URL
       x-google-quota:
         metricCosts:
           hello-requests: 1
